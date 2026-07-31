@@ -30,6 +30,7 @@
     </div>
     <div style="display:flex; align-items:center;">
       <div class="clock" id="clock">--:--</div>
+      <button id="funModeBtn" title="Fun-Modus">🎈</button>
       <button id="fullscreenBtn" title="Vollbild umschalten">⛶</button>
     </div>
   </header>
@@ -216,6 +217,10 @@
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 2500);
   }
+
+  document.getElementById("funModeBtn").addEventListener("click", () => {
+    window.location.href = "./fun.html";
+  });
 
   document.getElementById("fullscreenBtn").addEventListener("click", () => {
     if (!document.fullscreenElement) {

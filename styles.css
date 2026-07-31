@@ -87,6 +87,7 @@ header {
   color: var(--dark-blue);
 }
 
+#funModeBtn,
 #fullscreenBtn {
   background: transparent;
   border: 1px solid var(--grey);
