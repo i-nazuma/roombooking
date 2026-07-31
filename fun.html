@@ -3,12 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Fun-Modus</title>
 <link rel="apple-touch-icon" href="./icon-192.png">
 
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     background: #202D41;
     color: #FFFFFF;
@@ -18,11 +30,37 @@
     align-items: center;
     justify-content: center;
     gap: 20px;
+    padding: 20px;
+    text-align: center;
     -webkit-user-select: none;
     user-select: none;
   }
-  h1 { font-size: 28px; }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  .menu-button {
+    width: min(360px, 90vw);
+    padding: 18px 24px;
+    border: none;
+    border-radius: 14px;
+    color: #FFFFFF;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  #soundboardBtn {
+    background: #9D6CFF;
+  }
+
+  #appreciationBtn {
+    background: #FF4FC8;
+  }
+
   #backBtn {
+    width: min(360px, 90vw);
     background: transparent;
     border: 1px solid #B8B8B8;
     color: #FFFFFF;
@@ -31,18 +69,98 @@
     cursor: pointer;
     font-size: 16px;
   }
+
+  button:active {
+    transform: scale(0.97);
+  }
 </style>
 </head>
+
 <body>
 
-  <h1>🎈 Fun-Modus – Platzhalter</h1>
-  <p>Hier kommt Soundboard &amp; Animationen rein.</p>
-  <button id="backBtn">← Zurück zum Raumdisplay</button>
+  <h1>🎈 Fun-Modus</h1>
+  <p>Was möchtest du starten?</p>
+
+  <button id="soundboardBtn" class="menu-button">
+    🔊 Meme-Soundboard
+  </button>
+
+  <button id="appreciationBtn" class="menu-button">
+    👏 I NEED Appreciation
+  </button>
+
+  <button id="backBtn">
+    ← Zurück zum Raumdisplay
+  </button>
 
 <script>
-  document.getElementById("backBtn").addEventListener("click", () => {
+  async function enterFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      return;
+    }
+
+    try {
+      const element = document.documentElement;
+
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      }
+    } catch (error) {
+      // Browsers may block fullscreen until the first user interaction.
+    }
+  }
+
+  const goToIndex = () => {
     window.location.href = "./index.html";
+  };
+
+  document.getElementById("soundboardBtn").addEventListener("click", () => {
+    window.location.href = "./meme-soundboard.html";
   });
+
+  document.getElementById("appreciationBtn").addEventListener("click", () => {
+    window.location.href = "./appreciation.html";
+  });
+
+  document.getElementById("backBtn").addEventListener("click", goToIndex);
+
+  let inactivityTimer;
+
+  function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(goToIndex, 10000);
+  }
+
+  ["pointerdown", "mousemove", "touchstart", "keydown"].forEach(eventName => {
+    document.addEventListener(eventName, resetInactivityTimer, { passive: true });
+  });
+
+  // Try fullscreen immediately.
+  window.addEventListener("load", enterFullscreen);
+
+  // Fallback: enter fullscreen on the first interaction if the browser blocked it.
+  document.addEventListener("pointerdown", enterFullscreen, {
+    once: true,
+    passive: true
+  });
+  
+  async function enterFullscreen() {
+    if (document.fullscreenElement) return;
+
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch (error) {
+      console.log("Fullscreen was blocked:", error);
+    }
+  }
+
+  document.addEventListener("pointerdown", enterFullscreen, {
+    once: true,
+    capture: true
+  });
+  resetInactivityTimer();
 </script>
 
 </body>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Meme & Movie-ish Soundboard</title>
+  <style>
+    :root{--ink:#17121f;--paper:#fff8db;--lime:#caff4a;--pink:#ff4fc8;--cyan:#37e7ff;--orange:#ff8c42;--purple:#9d6cff;--red:#ff3f46;--shadow:7px 7px 0 var(--ink)}
+    *{box-sizing:border-box}html{min-height:100%}body{margin:0;min-height:100vh;background:#1b1229;color:var(--ink);font-family:Arial,Helvetica,sans-serif;overflow-x:hidden}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:38px 38px;mask-image:linear-gradient(#000,transparent 95%)}
+    .shell{position:relative;width:min(1180px,calc(100% - 28px));margin:0 auto;padding:28px 0 52px}
+    .back-button{display:inline-flex;align-items:center;gap:8px;margin-bottom:22px;padding:11px 16px;border:4px solid var(--ink);border-radius:13px;background:var(--cyan);color:var(--ink);box-shadow:5px 5px 0 var(--ink);font-weight:900;font-size:13px;cursor:pointer;transition:transform .13s ease,box-shadow .13s ease}.back-button:hover{transform:translateY(-3px);box-shadow:7px 8px 0 var(--ink)}.back-button:active{transform:translate(4px,4px);box-shadow:1px 1px 0 var(--ink)}
+    header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:25px;color:var(--paper)}
+    .kicker{display:inline-block;margin-bottom:11px;padding:7px 10px;border:3px solid var(--ink);background:var(--lime);color:var(--ink);box-shadow:4px 4px 0 var(--ink);font-weight:900;font-size:11px;letter-spacing:.14em;transform:rotate(-2deg)}
+    h1{margin:0;font:900 clamp(42px,7vw,84px)/.82 Impact,"Arial Black",sans-serif;letter-spacing:-.035em;text-transform:uppercase;text-shadow:4px 4px 0 var(--pink)}
+    h1 span{color:var(--cyan)}.subtitle{max-width:660px;margin:17px 0 0;color:#ded3e8;font-weight:700;font-size:15px}
+    .master{width:min(290px,100%);padding:16px;border:4px solid var(--ink);border-radius:18px;background:var(--paper);box-shadow:var(--shadow);transform:rotate(1deg)}
+    .master label{display:flex;justify-content:space-between;font-weight:900;font-size:12px;letter-spacing:.08em}.master input{width:100%;margin:12px 0 9px;accent-color:var(--pink)}
+    #stopBtn{width:100%;padding:9px;border:3px solid var(--ink);border-radius:10px;background:var(--red);color:white;font-weight:900;cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+    .status{display:flex;align-items:center;gap:15px;margin:0 0 24px;padding:13px 16px;border:4px solid var(--ink);border-radius:16px;background:var(--paper);box-shadow:var(--shadow)}
+    .now{min-width:0;flex:1}.now small{display:block;font-weight:900;font-size:10px;letter-spacing:.14em}.now strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,3vw,30px)}
+    .equalizer{display:flex;align-items:center;height:44px;gap:5px}.equalizer i{display:block;width:8px;height:9px;border:2px solid var(--ink);background:var(--pink);transform-origin:bottom}.status.playing .equalizer i{animation:bounce .45s ease-in-out infinite alternate}.status.playing .equalizer i:nth-child(2){animation-delay:-.18s}.status.playing .equalizer i:nth-child(3){animation-delay:-.32s}.status.playing .equalizer i:nth-child(4){animation-delay:-.08s}.status.playing .equalizer i:nth-child(5){animation-delay:-.26s}
+    .board{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.pad{position:relative;min-height:180px;padding:20px 17px 17px;border:5px solid var(--ink);border-radius:24px;background:var(--pad);color:var(--ink);box-shadow:var(--shadow);cursor:pointer;text-align:left;transition:transform .13s ease,box-shadow .13s ease;overflow:hidden}.pad:before{content:"";position:absolute;inset:8px;border:2px dashed rgba(23,18,31,.5);border-radius:14px;pointer-events:none}.pad:hover{transform:translateY(-5px) rotate(-1deg);box-shadow:11px 13px 0 var(--ink)}.pad:active,.pad.active{transform:translate(6px,6px) scale(.98);box-shadow:1px 1px 0 var(--ink)}
+    .pad .key{position:absolute;top:14px;right:15px;width:30px;height:30px;display:grid;place-items:center;border:3px solid;border-radius:8px;background:rgba(255,255,255,.65);font-weight:900}.emoji{display:block;margin-bottom:24px;font-size:45px;filter:drop-shadow(3px 3px 0 rgba(23,18,31,.25))}.pad strong{display:block;font:900 clamp(20px,2.3vw,30px)/.9 Impact,"Arial Black",sans-serif;letter-spacing:.015em;text-transform:uppercase}.pad small{display:block;margin-top:10px;font-weight:800;font-size:11px;line-height:1.25;letter-spacing:.04em}
+    .pad.dramatic{grid-column:span 2;min-height:230px;background:var(--red);color:white}.pad.dramatic:before{border-color:rgba(255,255,255,.55)}.pad.dramatic .emoji{font-size:68px;margin-bottom:28px}.pad.dramatic strong{font-size:clamp(36px,5vw,60px);text-shadow:3px 3px 0 var(--ink)}
+    footer{margin-top:28px;color:#cfc2da;text-align:center;font-weight:800;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+    .drama-overlay{position:fixed;inset:0;z-index:20;display:none;place-items:center;background:radial-gradient(circle,rgba(255,63,70,.4),rgba(8,3,15,.93));pointer-events:none}.drama-overlay.show{display:grid;animation:flash .22s ease-out}.drama-overlay div{color:white;text-align:center;font:900 clamp(55px,12vw,160px)/.76 Impact,sans-serif;text-transform:uppercase;text-shadow:8px 8px 0 #000;animation:zoom .9s cubic-bezier(.1,1.4,.2,1) both}.drama-overlay span{display:block;color:var(--lime);font-size:.45em;margin-top:.25em}
+    @keyframes bounce{to{height:42px;background:var(--cyan)}}@keyframes flash{from{background:white}}@keyframes zoom{from{opacity:0;transform:scale(.25) rotate(-8deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+    @media(max-width:900px){header{flex-direction:column}.master{width:100%;transform:none}.board{grid-template-columns:repeat(2,1fr)}.pad.dramatic{grid-column:span 2}}
+    @media(max-width:540px){.shell{width:min(100% - 18px,1180px);padding-top:18px}.board{gap:12px}.pad{min-height:155px;padding:16px 13px}.pad.dramatic{min-height:195px}.emoji{font-size:36px;margin-bottom:20px}.pad small{font-size:9px}.status{box-shadow:4px 4px 0 var(--ink)}}
+    @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <button class="back-button" id="backButton" type="button">← BACK TO HOME</button>
+    <header>
+      <div><div class="kicker">REAL SOUNDS · MAXIMUM CHAOS</div><h1>MEME &<br><span>MOVIE-ISH</span><br>SOUNDBOARD</h1><p class="subtitle">For meetings, plot twists, awkward silences, and moments that deserve far more production value.</p></div>
+      <aside class="master"><label for="volume"><span>MASTER DRAMA</span><span id="volumeText">70%</span></label><input id="volume" type="range" min="0" max="100" value="70"><button id="stopBtn" type="button">■ STOP THE NONSENSE</button></aside>
+    </header>
+    <section class="status" id="status" aria-live="polite"><div class="equalizer" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="now"><small>NOW OVERREACTING</small><strong id="nowPlaying">Choose your chaos.</strong></div></section>
+    <section class="board" aria-label="Sound effects">
+      <button class="pad dramatic" style="--pad:#ff3f46" data-sound="dramatic"><span class="key">1</span><span class="emoji">😱</span><strong>Dramatic</strong><small>For shocking emails and suspiciously empty calendars.</small></button>
+      <button class="pad" style="--pad:#78e5ff" data-sound="sixtySeven"><span class="key">2</span><span class="emoji">6️⃣7️⃣</span><strong>67</strong><small>The one and only sixty-seven sound.</small></button>
+      <button class="pad" style="--pad:#ffd256" data-sound="happy"><span class="key">3</span><span class="emoji">😄</span><strong>Happy</strong><small>Instant happiness at the press of a button.</small></button>
+      <button class="pad" style="--pad:#caff4a" data-sound="yay"><span class="key">4</span><span class="emoji">🎉</span><strong>Yay!</strong><small>A proper celebration for every tiny victory.</small></button>
+    </section>
+    <footer>Press buttons or keyboard keys 1–4 · headphones recommended for maximum cinema</footer>
+  </main>
+  <div class="drama-overlay" id="dramaOverlay"><div>DUN DUN<span>DUUUUN!</span></div></div>
+  <script>
+    let volume=.7,visualTimer=null;
+    let inactivityTimer=null;
+    const active=new Set();
+    const status=document.getElementById('status'),nowPlaying=document.getElementById('nowPlaying'),overlay=document.getElementById('dramaOverlay');
+    const names={dramatic:'😱 DRAMATIC',sixtySeven:'6️⃣7️⃣ 67',happy:'😄 HAPPY',yay:'🎉 YAY!'};
+    const files={dramatic:'sounds/dramatic.mp3',sixtySeven:'sounds/67.mp3',happy:'sounds/happy.mp3',yay:'sounds/yay.mp3'};
+    function play(name,button){
+      const audio=new Audio(files[name]);
+      audio.volume=volume;
+      active.add(audio);
+      audio.addEventListener('ended',()=>active.delete(audio));
+      audio.addEventListener('error',()=>{active.delete(audio);nowPlaying.textContent='Sound file not found.';status.classList.remove('playing')});
+      audio.play();
+      if(name==='dramatic'){overlay.classList.add('show');setTimeout(()=>overlay.classList.remove('show'),1650)}
+      document.querySelectorAll('.pad').forEach(p=>p.classList.remove('active'));
+      button?.classList.add('active');
+      setTimeout(()=>button?.classList.remove('active'),230);
+      nowPlaying.textContent=names[name];
+      status.classList.add('playing');
+      clearTimeout(visualTimer);
+      visualTimer=setTimeout(()=>status.classList.remove('playing'),name==='dramatic'?3100:1700);
+    }
+    document.querySelectorAll('.pad').forEach(button=>button.addEventListener('click',()=>play(button.dataset.sound,button)));
+    document.addEventListener('keydown',event=>{if(event.repeat)return;const button=document.querySelectorAll('.pad')[Number(event.key)-1];if(button)play(button.dataset.sound,button)});
+    document.getElementById('volume').addEventListener('input',event=>{const value=Number(event.target.value);volume=value/100;active.forEach(audio=>audio.volume=volume);document.getElementById('volumeText').textContent=value+'%'});
+    document.getElementById('stopBtn').addEventListener('click',()=>{active.forEach(audio=>{audio.pause();audio.currentTime=0});active.clear();status.classList.remove('playing');nowPlaying.textContent='Silence restored. Temporarily.';overlay.classList.remove('show')});
+    function goToIndex(){window.location.href='index.html'}
+    function resetInactivityTimer(){
+      clearTimeout(inactivityTimer);
+      inactivityTimer=setTimeout(goToIndex,20000);
+    }
+    document.getElementById('backButton').addEventListener('click',goToIndex);
+    ['click','keydown','pointermove','touchstart','scroll'].forEach(eventName=>{
+      document.addEventListener(eventName,resetInactivityTimer,{passive:true});
+    });
+    resetInactivityTimer();
+  </script>
+</body>
+</html>
