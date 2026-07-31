@@ -103,11 +103,22 @@ client secret. The app is served at `http://<tablet-ip>:5000`.
 - Polls `/api/status` and `/api/agenda` every 30 seconds.
 - **Belegt** (amber) while an event on the room's calendar is currently
   running, showing "Wieder frei ab HH:MM Uhr". **Frei** (green) otherwise.
-- Today's full agenda is listed below, with each entry's real organizer
-  (whoever booked that slot in Outlook).
-- "Raum jetzt buchen" creates a real event (`POST
-  /users/{room_mailbox}/events` via Graph) starting now, for the chosen
-  duration, directly on the room's calendar.
+  Only shown while viewing today — hidden while browsing another day, since
+  it's inherently about right-now.
+- The agenda shows one day at a time (today by default). Swipe left/right
+  on it, or use the ‹ › arrows, to browse other days; a "Heute" button
+  appears once you've navigated away from today.
+- "Raum jetzt buchen" creates a real event starting now, for the chosen
+  duration. "Termin planen" opens the same panel with an added date/time
+  picker to book a specific future slot instead (defaults to whatever day
+  you're currently viewing).
+- Both booking flows are rejected with a clear "already booked" message if
+  the requested slot overlaps an existing event on the room's calendar —
+  no double-bookings.
+- Agenda entries booked through the tablet (organizer = the room mailbox
+  itself) show a delete button. Entries organized by anyone else — i.e.
+  real meetings that simply invited the room via Outlook — don't; this is
+  re-checked server-side on every delete, not just hidden in the UI.
 - Cancelled events are filtered out.
 - If a fetch to `/api` fails (network hiccup, Graph error), the tablet keeps
   showing the last successfully loaded data with an "Offline – letzter

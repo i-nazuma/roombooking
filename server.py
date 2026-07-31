@@ -7,6 +7,7 @@ Serves the static app shell and a small /api backed by Microsoft Graph
 """
 
 import os
+from datetime import datetime
 
 import requests as requests_lib
 from flask import Flask, jsonify, request, send_from_directory
@@ -37,8 +38,16 @@ def static_files(filename):
 
 @app.route("/api/agenda")
 def api_agenda():
+    date_str = request.args.get("date")
+    for_date = None
+    if date_str:
+        try:
+            for_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return jsonify({"error": "invalid_date"}), 400
+
     try:
-        agenda = graph_client.get_today_agenda()
+        agenda = graph_client.get_agenda(for_date=for_date)
     except Exception as exc:  # noqa: BLE001 - surfaced to the client as-is
         return _graph_error_response(exc)
     return jsonify([{k: v for k, v in item.items() if not k.startswith("_")} for item in agenda])
@@ -47,7 +56,7 @@ def api_agenda():
 @app.route("/api/status")
 def api_status():
     try:
-        agenda = graph_client.get_today_agenda()
+        agenda = graph_client.get_agenda()
         status = graph_client.get_current_status(agenda)
     except Exception as exc:  # noqa: BLE001
         return _graph_error_response(exc)
@@ -64,15 +73,38 @@ def api_book():
     payload = request.get_json(silent=True) or {}
     employee = payload.get("employee")
     duration = payload.get("durationMinutes")
+    start_str = payload.get("startDateTime")
 
     if not employee or not isinstance(duration, int) or duration <= 0:
         return jsonify({"error": "invalid_request"}), 400
 
+    start = None
+    if start_str:
+        try:
+            start = datetime.fromisoformat(start_str)
+        except ValueError:
+            return jsonify({"error": "invalid_start"}), 400
+        if start < datetime.now():
+            return jsonify({"error": "start_in_past"}), 400
+
     try:
-        event = graph_client.create_booking(employee, duration)
+        event = graph_client.create_booking(employee, duration, start=start)
+    except graph_client.BookingConflict as exc:
+        return jsonify({"error": "conflict", "detail": str(exc)}), 409
     except Exception as exc:  # noqa: BLE001
         return _graph_error_response(exc)
     return jsonify({"ok": True, "eventId": event.get("id")})
+
+
+@app.route("/api/booking/<event_id>", methods=["DELETE"])
+def api_delete_booking(event_id):
+    try:
+        graph_client.delete_booking(event_id)
+    except PermissionError:
+        return jsonify({"error": "not_deletable"}), 403
+    except Exception as exc:  # noqa: BLE001
+        return _graph_error_response(exc)
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":

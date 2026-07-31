@@ -45,17 +45,33 @@
   </div>
 
   <div class="agenda">
-    <h2>Heutige Termine</h2>
+    <div class="day-nav">
+      <button class="day-nav-arrow" id="prevDayBtn" aria-label="Vorheriger Tag">‹</button>
+      <div class="day-nav-label">
+        <span id="dayLabel">Heute</span>
+        <button class="today-btn" id="todayBtn">Heute</button>
+      </div>
+      <button class="day-nav-arrow" id="nextDayBtn" aria-label="Nächster Tag">›</button>
+    </div>
     <div id="agendaList"></div>
   </div>
 
   <div class="book-bar">
     <button class="book-btn" id="openBookingBtn">Raum jetzt buchen</button>
+    <button class="book-btn secondary-btn" id="planBookingBtn">Termin planen</button>
   </div>
 
   <div class="overlay" id="bookingOverlay">
     <div class="panel">
-      <h3>Raum buchen</h3>
+      <h3 id="panelTitle">Raum buchen</h3>
+
+      <div class="field" id="scheduleFields" style="display:none">
+        <label>Datum &amp; Uhrzeit</label>
+        <div class="schedule-row">
+          <input type="date" id="scheduleDate">
+          <input type="time" id="scheduleTime">
+        </div>
+      </div>
 
       <div class="field">
         <label>Gebucht von</label>
@@ -85,6 +101,56 @@
   const POLL_INTERVAL_MS = 30000;
 
   let selectedDuration = 30;
+  let viewedDate = new Date();
+  let bookMode = "now";
+
+  function isToday(d) {
+    const t = new Date();
+    return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
+  }
+
+  function formatDateParam(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatDayLabel(d) {
+    if (isToday(d)) return "Heute";
+    return d.toLocaleDateString("de-AT", { weekday: "long", day: "numeric", month: "long" });
+  }
+
+  function nextQuarterHourStr() {
+    const d = new Date();
+    d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+
+  function renderDayNav() {
+    document.getElementById("dayLabel").textContent = formatDayLabel(viewedDate);
+    document.getElementById("todayBtn").classList.toggle("show", !isToday(viewedDate));
+  }
+
+  function updateStatusHeroVisibility() {
+    document.getElementById("statusHero").style.display = isToday(viewedDate) ? "" : "none";
+  }
+
+  function dayChanged() {
+    renderDayNav();
+    updateStatusHeroVisibility();
+    loadAgenda();
+  }
+
+  function changeDay(delta) {
+    viewedDate.setDate(viewedDate.getDate() + delta);
+    dayChanged();
+  }
+
+  function goToToday() {
+    viewedDate = new Date();
+    dayChanged();
+  }
 
   function tickClock() {
     const now = new Date();
@@ -107,7 +173,7 @@
 
   async function loadAgenda() {
     try {
-      const res = await fetch(`${API_BASE}/agenda`);
+      const res = await fetch(`${API_BASE}/agenda?date=${formatDateParam(viewedDate)}`);
       if (!res.ok) throw new Error(res.status);
       renderAgenda(await res.json());
       updateOfflineBadge(false);
@@ -158,16 +224,17 @@
   function renderAgenda(items) {
     const list = document.getElementById("agendaList");
     if (!items.length) {
-      list.innerHTML = `<div class="agenda-empty">Keine Termine für heute</div>`;
+      list.innerHTML = `<div class="agenda-empty">Keine Termine an diesem Tag</div>`;
       return;
     }
     list.innerHTML = items.map(item => `
       <div class="agenda-item">
         <div class="agenda-time">${item.start}–${item.end}</div>
-        <div>
+        <div class="agenda-info">
           <div class="agenda-title">${item.titel}</div>
           <div class="agenda-by">${item.gebuchtVon}</div>
         </div>
+        ${item.loeschbar ? `<button class="delete-btn" data-id="${item.id}" title="Buchung löschen">🗑</button>` : ""}
       </div>
     `).join("");
   }
@@ -175,6 +242,18 @@
   const overlay = document.getElementById("bookingOverlay");
 
   document.getElementById("openBookingBtn").addEventListener("click", () => {
+    bookMode = "now";
+    document.getElementById("panelTitle").textContent = "Raum buchen";
+    document.getElementById("scheduleFields").style.display = "none";
+    overlay.classList.add("open");
+  });
+
+  document.getElementById("planBookingBtn").addEventListener("click", () => {
+    bookMode = "scheduled";
+    document.getElementById("panelTitle").textContent = "Termin planen";
+    document.getElementById("scheduleFields").style.display = "";
+    document.getElementById("scheduleDate").value = formatDateParam(viewedDate);
+    document.getElementById("scheduleTime").value = nextQuarterHourStr();
     overlay.classList.add("open");
   });
 
@@ -192,13 +271,30 @@
 
   document.getElementById("confirmBookingBtn").addEventListener("click", async () => {
     const employee = document.getElementById("employeeSelect").value;
+    const payload = { employee, durationMinutes: selectedDuration };
+
+    if (bookMode === "scheduled") {
+      const date = document.getElementById("scheduleDate").value;
+      const time = document.getElementById("scheduleTime").value;
+      if (!date || !time) {
+        showToast("Bitte Datum und Uhrzeit wählen");
+        return;
+      }
+      payload.startDateTime = `${date}T${time}:00`;
+    }
 
     try {
       const res = await fetch(`${API_BASE}/book`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employee, durationMinutes: selectedDuration })
+        body: JSON.stringify(payload)
       });
+
+      if (res.status === 409) {
+        const data = await res.json().catch(() => ({}));
+        showToast(`Zeitraum bereits belegt: ${data.detail || "Konflikt"}`);
+        return;
+      }
       if (!res.ok) throw new Error(res.status);
 
       overlay.classList.remove("open");
@@ -210,6 +306,45 @@
       showToast("Buchung fehlgeschlagen – bitte erneut versuchen");
     }
   });
+
+  document.getElementById("agendaList").addEventListener("click", async (e) => {
+    const btn = e.target.closest(".delete-btn");
+    if (!btn) return;
+    if (!confirm("Diese Buchung wirklich löschen?")) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/booking/${btn.dataset.id}`, { method: "DELETE" });
+      if (res.status === 403) {
+        showToast("Diese Buchung kann nicht gelöscht werden");
+        return;
+      }
+      if (!res.ok) throw new Error(res.status);
+      showToast("Buchung gelöscht");
+      loadAgenda();
+      loadStatus();
+    } catch (err) {
+      showToast("Löschen fehlgeschlagen");
+    }
+  });
+
+  document.getElementById("prevDayBtn").addEventListener("click", () => changeDay(-1));
+  document.getElementById("nextDayBtn").addEventListener("click", () => changeDay(1));
+  document.getElementById("todayBtn").addEventListener("click", goToToday);
+
+  const agendaEl = document.querySelector(".agenda");
+  let touchStartX = 0;
+  let touchStartY = 0;
+  agendaEl.addEventListener("touchstart", (e) => {
+    touchStartX = e.changedTouches[0].clientX;
+    touchStartY = e.changedTouches[0].clientY;
+  }, { passive: true });
+  agendaEl.addEventListener("touchend", (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      changeDay(dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
 
   function showToast(msg) {
     const toast = document.getElementById("toast");
@@ -244,6 +379,8 @@
     });
   }
 
+  renderDayNav();
+  updateStatusHeroVisibility();
   loadStatus();
   loadAgenda();
   loadEmployees();

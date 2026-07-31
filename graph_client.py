@@ -9,8 +9,9 @@ on the app registration to read/write the room mailbox's calendar directly.
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 import msal
 import requests
@@ -22,6 +23,16 @@ SCOPES = ["https://graph.microsoft.com/.default"]
 with open(CONFIG_PATH, encoding="utf-8") as f:
     CONFIG = json.load(f)
 
+_LOCAL_TZ = ZoneInfo(CONFIG["timezone"])
+
+
+def _to_utc_iso(local_naive_dt):
+    # calendarView's startDateTime/endDateTime query params are always
+    # interpreted as UTC by Graph, regardless of the Prefer: outlook.timezone
+    # header (that header only affects how *response* dateTimes are
+    # rendered). Naive local datetimes must be converted explicitly.
+    return local_naive_dt.replace(tzinfo=_LOCAL_TZ).astimezone(timezone.utc).isoformat()
+
 _app = msal.ConfidentialClientApplication(
     client_id=CONFIG["client_id"],
     client_credential=CONFIG["client_secret"],
@@ -29,6 +40,17 @@ _app = msal.ConfidentialClientApplication(
 )
 
 _ROOM_PATH = f"/users/{quote(CONFIG['room_mailbox'])}"
+_ROOM_MAILBOX_LOWER = CONFIG["room_mailbox"].lower()
+
+
+class BookingConflict(Exception):
+    """Raised when the requested slot overlaps an existing event."""
+
+    def __init__(self, conflicting_event):
+        self.subject = conflicting_event.get("subject") or "(kein Titel)"
+        self.start = conflicting_event["start"]["dateTime"][11:16]
+        self.end = conflicting_event["end"]["dateTime"][11:16]
+        super().__init__(f"{self.subject} ({self.start}–{self.end})")
 
 
 def acquire_token():
@@ -58,6 +80,12 @@ def _graph_post(path, body, tz=None):
     return resp.json()
 
 
+def _graph_delete(path):
+    headers = {"Authorization": f"Bearer {acquire_token()}"}
+    resp = requests.delete(f"{GRAPH_BASE}{path}", headers=headers, timeout=15)
+    resp.raise_for_status()
+
+
 def _parse_graph_datetime(value):
     # Graph returns fractional seconds with up to 7 digits (e.g. ".0000000"),
     # which datetime.fromisoformat rejects on Python < 3.11. Truncate to 6.
@@ -65,18 +93,21 @@ def _parse_graph_datetime(value):
     return datetime.fromisoformat(value)
 
 
-def get_today_agenda():
-    """Today's events on the room calendar (local time), earliest first."""
+def get_agenda(for_date=None):
+    """Events on the room calendar for one day (local time), earliest first.
+
+    `for_date` is a `datetime.date`; defaults to today.
+    """
     tz = CONFIG["timezone"]
-    now = datetime.now()
-    start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day = for_date or date.today()
+    start_of_day = datetime(day.year, day.month, day.day)
     end_of_day = start_of_day + timedelta(days=1)
 
     data = _graph_get(
         f"{_ROOM_PATH}/calendarView",
         params={
-            "startDateTime": start_of_day.isoformat(),
-            "endDateTime": end_of_day.isoformat(),
+            "startDateTime": _to_utc_iso(start_of_day),
+            "endDateTime": _to_utc_iso(end_of_day),
             "$select": "subject,start,end,organizer,isCancelled",
             "$orderby": "start/dateTime",
             "$top": 50,
@@ -88,14 +119,19 @@ def get_today_agenda():
     for event in data.get("value", []):
         if event.get("isCancelled"):
             continue
+        organizer_address = (
+            event.get("organizer", {}).get("emailAddress", {}).get("address", "")
+        )
         agenda.append(
             {
+                "id": event["id"],
                 "start": event["start"]["dateTime"][11:16],
                 "end": event["end"]["dateTime"][11:16],
                 "titel": event.get("subject") or "(kein Titel)",
                 "gebuchtVon": event.get("organizer", {})
                 .get("emailAddress", {})
                 .get("name", "Unbekannt"),
+                "loeschbar": organizer_address.lower() == _ROOM_MAILBOX_LOWER,
                 "_startDateTime": event["start"]["dateTime"],
                 "_endDateTime": event["end"]["dateTime"],
             }
@@ -114,16 +150,54 @@ def get_current_status(agenda):
     return {"belegt": False, "freiAb": None, "belegtBis": None}
 
 
-def create_booking(employee, duration_minutes):
-    """Create an event on the room mailbox's own calendar."""
+def _find_conflict(start, end):
+    """Return the first non-cancelled event overlapping [start, end], or None."""
     tz = CONFIG["timezone"]
-    now = datetime.now()
-    end = now + timedelta(minutes=duration_minutes)
+    data = _graph_get(
+        f"{_ROOM_PATH}/calendarView",
+        params={
+            "startDateTime": _to_utc_iso(start),
+            "endDateTime": _to_utc_iso(end),
+            "$select": "subject,start,end,isCancelled",
+            "$top": 1,
+        },
+        tz=tz,
+    )
+    for event in data.get("value", []):
+        if not event.get("isCancelled"):
+            return event
+    return None
+
+
+def create_booking(employee, duration_minutes, start=None):
+    """Create an event on the room mailbox's own calendar.
+
+    Raises BookingConflict (without creating anything) if the slot overlaps
+    an existing event.
+    """
+    tz = CONFIG["timezone"]
+    start = start or datetime.now()
+    end = start + timedelta(minutes=duration_minutes)
+
+    conflict = _find_conflict(start, end)
+    if conflict:
+        raise BookingConflict(conflict)
 
     body = {
         "subject": f"Raumbuchung – {employee}",
         "body": {"contentType": "Text", "content": f"Gebucht über das Tablet für {employee}."},
-        "start": {"dateTime": now.isoformat(), "timeZone": tz},
+        "start": {"dateTime": start.isoformat(), "timeZone": tz},
         "end": {"dateTime": end.isoformat(), "timeZone": tz},
     }
     return _graph_post(f"{_ROOM_PATH}/events", body, tz=tz)
+
+
+def delete_booking(event_id):
+    """Delete an event, but only if it was booked by this app (organizer ==
+    the room mailbox itself). Raises PermissionError otherwise.
+    """
+    event = _graph_get(f"{_ROOM_PATH}/events/{event_id}", params={"$select": "organizer"})
+    organizer_address = event.get("organizer", {}).get("emailAddress", {}).get("address", "")
+    if organizer_address.lower() != _ROOM_MAILBOX_LOWER:
+        raise PermissionError("Dieser Termin wurde nicht über das Tablet gebucht.")
+    _graph_delete(f"{_ROOM_PATH}/events/{event_id}")
