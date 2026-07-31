@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Fun-Modus</title>
 <link rel="apple-touch-icon" href="./icon-192.png">
 
@@ -14,7 +16,9 @@
   }
 
   html, body {
+    width: 100%;
     height: 100%;
+    overflow: hidden;
   }
 
   body {
@@ -90,6 +94,24 @@
   </button>
 
 <script>
+  async function enterFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      return;
+    }
+
+    try {
+      const element = document.documentElement;
+
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      }
+    } catch (error) {
+      // Browsers may block fullscreen until the first user interaction.
+    }
+  }
+
   const goToIndex = () => {
     window.location.href = "./index.html";
   };
@@ -115,6 +137,29 @@
     document.addEventListener(eventName, resetInactivityTimer, { passive: true });
   });
 
+  // Try fullscreen immediately.
+  window.addEventListener("load", enterFullscreen);
+
+  // Fallback: enter fullscreen on the first interaction if the browser blocked it.
+  document.addEventListener("pointerdown", enterFullscreen, {
+    once: true,
+    passive: true
+  });
+  
+  async function enterFullscreen() {
+    if (document.fullscreenElement) return;
+
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch (error) {
+      console.log("Fullscreen was blocked:", error);
+    }
+  }
+
+  document.addEventListener("pointerdown", enterFullscreen, {
+    once: true,
+    capture: true
+  });
   resetInactivityTimer();
 </script>
 
