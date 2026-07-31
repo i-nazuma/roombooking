@@ -9,6 +9,7 @@ const CACHE_NAME = "raumbuchung-shell-v1";
 
 const APP_SHELL = [
   "./index.html",
+  "./styles.css",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"
