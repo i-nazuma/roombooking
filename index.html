@@ -365,13 +365,13 @@
     }
   });
 
-  function updateOfflineBadge(forceOffline) {
-    const offline = forceOffline !== undefined ? forceOffline : !navigator.onLine;
+  function updateOfflineBadge(offline) {
+    // Driven only by real /api fetch outcomes below — navigator.onLine is
+    // unreliable (notably on Android) and can report false while local
+    // requests succeed fine, which caused the badge to get stuck showing
+    // "offline" even when the app was working correctly.
     document.getElementById("offlineBadge").classList.toggle("show", offline);
   }
-  window.addEventListener("online", () => updateOfflineBadge());
-  window.addEventListener("offline", () => updateOfflineBadge());
-  updateOfflineBadge();
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
