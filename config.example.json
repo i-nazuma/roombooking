@@ -1,0 +1,8 @@
+{
+  "client_id": "PASTE-APPLICATION-CLIENT-ID-HERE",
+  "client_secret": "PASTE-CLIENT-SECRET-HERE",
+  "tenant_id": "PASTE-DIRECTORY-TENANT-ID-HERE",
+  "room_mailbox": "besprechungszimmer@coredat.com",
+  "timezone": "Europe/Vienna",
+  "employees": ["Ibrahim", "Alex", "Oli", "Steffi", "Antonia", "Nico", "Mario", "Sonja"]
+}

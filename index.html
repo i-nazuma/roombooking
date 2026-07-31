@@ -451,7 +451,6 @@
   <div class="toast" id="toast">Raum gebucht ✓</div>
 
 <script>
-  const USE_MOCK = true;
   const API_BASE = "/api";
   const POLL_INTERVAL_MS = 30000;
 
@@ -465,60 +464,38 @@
   setInterval(tickClock, 1000);
   tickClock();
 
-  function getMockStatus() {
-    return { belegt: true, freiAb: "14:30", belegtBis: "14:30" };
-  }
-
-  function getMockAgenda() {
-    return [
-      { start: "09:00", end: "10:00", titel: "Daily Standup", gebuchtVon: "Sarah Huber" },
-      { start: "11:00", end: "12:00", titel: "Kunden-Call TMF", gebuchtVon: "Ibrahim" },
-      { start: "13:00", end: "14:30", titel: "Sprint Review", gebuchtVon: "Team Dev" },
-    ];
-  }
-
-  function getMockEmployees() {
-    return ["Ibrahim", "Sarah Huber", "Max Gruber", "Lena Wagner", "Tom Berger"];
-  }
-
   async function loadStatus() {
-    let data;
-    if (USE_MOCK) {
-      data = getMockStatus();
-    } else {
-      // TODO: echte API
-      // const res = await fetch(`${API_BASE}/status`);
-      // data = await res.json();
-      data = getMockStatus();
+    try {
+      const res = await fetch(`${API_BASE}/status`);
+      if (!res.ok) throw new Error(res.status);
+      renderStatus(await res.json());
+      updateOfflineBadge(false);
+    } catch (err) {
+      updateOfflineBadge(true);
     }
-    renderStatus(data);
   }
 
   async function loadAgenda() {
-    let items;
-    if (USE_MOCK) {
-      items = getMockAgenda();
-    } else {
-      // TODO: echte API
-      // const res = await fetch(`${API_BASE}/agenda`);
-      // items = await res.json();
-      items = getMockAgenda();
+    try {
+      const res = await fetch(`${API_BASE}/agenda`);
+      if (!res.ok) throw new Error(res.status);
+      renderAgenda(await res.json());
+      updateOfflineBadge(false);
+    } catch (err) {
+      updateOfflineBadge(true);
     }
-    renderAgenda(items);
   }
 
   async function loadEmployees() {
-    let names;
-    if (USE_MOCK) {
-      names = getMockEmployees();
-    } else {
-      // TODO: echte API
-      // const res = await fetch(`${API_BASE}/employees`);
-      // names = await res.json();
-      names = getMockEmployees();
+    try {
+      const res = await fetch(`${API_BASE}/employees`);
+      if (!res.ok) throw new Error(res.status);
+      const names = await res.json();
+      const select = document.getElementById("employeeSelect");
+      select.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
+    } catch (err) {
+      updateOfflineBadge(true);
     }
-    const select = document.getElementById("employeeSelect");
-    select.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
   }
 
   const ICON_FREI = `<svg viewBox="0 0 24 24" fill="none" stroke="#202D41" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
@@ -586,21 +563,22 @@
   document.getElementById("confirmBookingBtn").addEventListener("click", async () => {
     const employee = document.getElementById("employeeSelect").value;
 
-    if (USE_MOCK) {
-      console.log("Mock-Buchung:", { employee, dauer: selectedDuration });
-    } else {
-      // TODO: echte API
-      // await fetch(`${API_BASE}/book`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ employee, durationMinutes: selectedDuration })
-      // });
-    }
+    try {
+      const res = await fetch(`${API_BASE}/book`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employee, durationMinutes: selectedDuration })
+      });
+      if (!res.ok) throw new Error(res.status);
 
-    overlay.classList.remove("open");
-    showToast(`Raum für ${employee} gebucht (${selectedDuration} Min)`);
-    loadStatus();
-    loadAgenda();
+      overlay.classList.remove("open");
+      showToast(`Raum für ${employee} gebucht (${selectedDuration} Min)`);
+      loadStatus();
+      loadAgenda();
+    } catch (err) {
+      overlay.classList.remove("open");
+      showToast("Buchung fehlgeschlagen – bitte erneut versuchen");
+    }
   });
 
   function showToast(msg) {
@@ -618,11 +596,12 @@
     }
   });
 
-  function updateOfflineBadge() {
-    document.getElementById("offlineBadge").classList.toggle("show", !navigator.onLine);
+  function updateOfflineBadge(forceOffline) {
+    const offline = forceOffline !== undefined ? forceOffline : !navigator.onLine;
+    document.getElementById("offlineBadge").classList.toggle("show", offline);
   }
-  window.addEventListener("online", updateOfflineBadge);
-  window.addEventListener("offline", updateOfflineBadge);
+  window.addEventListener("online", () => updateOfflineBadge());
+  window.addEventListener("offline", () => updateOfflineBadge());
   updateOfflineBadge();
 
   if ("serviceWorker" in navigator) {
