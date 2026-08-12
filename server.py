@@ -10,12 +10,27 @@ import os
 from datetime import datetime
 
 import requests as requests_lib
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory
 
 import graph_client
 
 app = Flask(__name__, static_folder=None)
 ROOT_DIR = os.path.dirname(__file__)
+
+# Not a strong security boundary (it's a fixed token embedded in the served
+# HTML, visible to anyone who opens devtools on the tablet, and travels in
+# plaintext like everything else on this local HTTP setup) — but it stops
+# other devices on the WiFi from hitting /api directly without ever loading
+# the page. If unset in config.json, the check is skipped entirely (open,
+# matching prior behavior) so existing deployments don't break silently.
+API_TOKEN = graph_client.CONFIG.get("api_token")
+
+
+@app.before_request
+def _check_api_token():
+    if API_TOKEN and request.path.startswith("/api/"):
+        if request.headers.get("X-API-Token") != API_TOKEN:
+            return jsonify({"error": "unauthorized"}), 401
 
 
 def _graph_error_response(exc):
@@ -27,7 +42,10 @@ def _graph_error_response(exc):
 
 @app.route("/")
 def index():
-    return send_from_directory(ROOT_DIR, "index.html")
+    with open(os.path.join(ROOT_DIR, "index.html"), encoding="utf-8") as f:
+        html = f.read()
+    html = html.replace("__API_TOKEN__", API_TOKEN or "")
+    return Response(html, mimetype="text/html")
 
 
 @app.route("/<path:filename>")

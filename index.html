@@ -98,7 +98,13 @@
 
 <script>
   const API_BASE = "/api";
+  const API_TOKEN = "__API_TOKEN__";
   const POLL_INTERVAL_MS = 30000;
+
+  function apiFetch(path, options = {}) {
+    const headers = Object.assign({}, options.headers, { "X-API-Token": API_TOKEN });
+    return fetch(`${API_BASE}${path}`, Object.assign({}, options, { headers }));
+  }
 
   let selectedDuration = 30;
   let viewedDate = new Date();
@@ -167,7 +173,7 @@
 
   async function loadStatus() {
     try {
-      const res = await fetch(`${API_BASE}/status`);
+      const res = await apiFetch("/status");
       if (!res.ok) throw new Error(res.status);
       renderStatus(await res.json());
       apiHealth.status = true;
@@ -180,7 +186,7 @@
 
   async function loadAgenda() {
     try {
-      const res = await fetch(`${API_BASE}/agenda?date=${formatDateParam(viewedDate)}`);
+      const res = await apiFetch(`/agenda?date=${formatDateParam(viewedDate)}`);
       if (!res.ok) throw new Error(res.status);
       renderAgenda(await res.json());
       apiHealth.agenda = true;
@@ -193,7 +199,7 @@
 
   async function loadEmployees() {
     try {
-      const res = await fetch(`${API_BASE}/employees`);
+      const res = await apiFetch("/employees");
       if (!res.ok) throw new Error(res.status);
       const names = await res.json();
       const select = document.getElementById("employeeSelect");
@@ -295,7 +301,7 @@
     }
 
     try {
-      const res = await fetch(`${API_BASE}/book`, {
+      const res = await apiFetch("/book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -324,7 +330,7 @@
     if (!confirm("Diese Buchung wirklich löschen?")) return;
 
     try {
-      const res = await fetch(`${API_BASE}/booking/${btn.dataset.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/booking/${btn.dataset.id}`, { method: "DELETE" });
       if (res.status === 403) {
         showToast("Diese Buchung kann nicht gelöscht werden");
         return;

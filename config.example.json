@@ -5,5 +5,6 @@
   "room_mailbox": "besprechungszimmer@coredat.com",
   "timezone": "Europe/Vienna",
   "employee_group_id": "PASTE-ENTRA-GROUP-OBJECT-ID-HERE",
-  "employees": ["Ibrahim", "Alex", "Oli", "Steffi", "Antonia", "Nico", "Mario", "Sonja"]
+  "employees": ["Ibrahim", "Alex", "Oli", "Steffi", "Antonia", "Nico", "Mario", "Sonja"],
+  "api_token": "GENERATE-WITH-python -c \"import secrets; print(secrets.token_urlsafe(32))\""
 }

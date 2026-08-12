@@ -91,13 +91,28 @@ Fill in `config.json`:
   "room_mailbox": "besprechungszimmer@coredat.com",
   "timezone": "Europe/Vienna",
   "employee_group_id": "...",
-  "employees": ["Ibrahim", "Alex", "Oli", "Steffi", "Antonia", "Nico", "Mario", "Sonja"]
+  "employees": ["Ibrahim", "Alex", "Oli", "Steffi", "Antonia", "Nico", "Mario", "Sonja"],
+  "api_token": "..."
 }
 ```
 
 `employee_group_id` is optional — omit it (as it currently is) to use the
 static `employees` list until `GroupMember.Read.All` is granted and a
 group is set up (see above).
+
+`api_token` is also optional but recommended — without it, `/api/*` is
+open to anyone who can reach the tablet's IP on the network (no login, no
+Azure access needed at all — the most directly exploitable gap in this
+setup). Generate one with:
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+When set, the tablet's own page embeds it automatically and keeps working
+with no visible change; any *other* device calling `/api/*` directly
+without it gets `401`. This isn't a strong boundary — the token is visible
+to anyone who opens devtools on the tablet itself, and travels in plaintext
+like everything else on this local HTTP setup — but it stops casual/
+opportunistic misuse from other devices on the same WiFi.
 
 `config.json` is gitignored — **never commit it**, it holds the client
 secret. Treat that secret like a password: anyone with it can read/write
