@@ -9,6 +9,7 @@ on the app registration to read/write the room mailbox's calendar directly.
 import json
 import os
 import re
+import time
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -190,6 +191,50 @@ def create_booking(employee, duration_minutes, start=None):
         "end": {"dateTime": end.isoformat(), "timeZone": tz},
     }
     return _graph_post(f"{_ROOM_PATH}/events", body, tz=tz)
+
+
+_employees_cache = {"names": None, "fetched_at": 0.0}
+_EMPLOYEES_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60  # 1 week
+
+
+def get_employees():
+    """Display names of enabled members of the configured Entra ID group,
+    sorted alphabetically.
+
+    Falls back to config.json's static "employees" list if
+    `employee_group_id` isn't set or the Graph call fails (e.g.
+    GroupMember.Read.All not yet granted/consented) — booking should keep
+    working even if the directory lookup is temporarily unavailable. A
+    failed lookup doesn't get cached, so the next request retries Graph
+    immediately rather than being stuck on the fallback for the TTL.
+    """
+    now = time.monotonic()
+    if _employees_cache["names"] is not None and now - _employees_cache["fetched_at"] < _EMPLOYEES_CACHE_TTL_SECONDS:
+        return _employees_cache["names"]
+
+    group_id = CONFIG.get("employee_group_id")
+    if not group_id:
+        return CONFIG.get("employees", [])
+
+    try:
+        names = []
+        path = f"/groups/{group_id}/members"
+        params = {"$select": "displayName,accountEnabled", "$top": 999}
+        while path:
+            data = _graph_get(path, params=params)
+            for member in data.get("value", []):
+                if member.get("accountEnabled", True) and member.get("displayName"):
+                    names.append(member["displayName"])
+            next_link = data.get("@odata.nextLink")
+            path = next_link[len(GRAPH_BASE):] if next_link else None
+            params = None
+        names.sort()
+    except Exception:  # noqa: BLE001 - fall back rather than break booking
+        return CONFIG.get("employees", [])
+
+    _employees_cache["names"] = names
+    _employees_cache["fetched_at"] = now
+    return names
 
 
 def delete_booking(event_id):

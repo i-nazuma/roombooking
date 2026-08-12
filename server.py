@@ -65,7 +65,7 @@ def api_status():
 
 @app.route("/api/employees")
 def api_employees():
-    return jsonify(graph_client.CONFIG.get("employees", []))
+    return jsonify(graph_client.get_employees())
 
 
 @app.route("/api/book", methods=["POST"])

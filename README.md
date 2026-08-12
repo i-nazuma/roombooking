@@ -31,6 +31,29 @@ registration → Certificates & secrets → new client secret → API permission
 → Microsoft Graph → **Application permissions** → `Calendars.ReadWrite` →
 Grant admin consent (needs a Global/Exchange admin).
 
+### Employee dropdown: pulled live from an Entra ID group
+
+The "Gebucht von" dropdown is populated from the members of one Entra ID
+group, instead of being hand-maintained. This needs a second Application
+permission on the same app registration: **`GroupMember.Read.All`**
+(admin consent required — this one isn't granted yet, request it the same
+way `Calendars.ReadWrite` was).
+
+Note this permission isn't scopable to a single group the way
+`Calendars.ReadWrite` was scoped to one mailbox above — once granted, the
+app can technically read the membership of *any* group in the tenant, not
+just the one configured below. Graph doesn't offer a narrower
+application-permission option for "list this one group's members" (unlike
+Exchange's `New-ApplicationAccessPolicy`, which is Exchange-only).
+
+1. Create (or reuse) an Entra ID security group containing exactly the
+   people who should show up in the dropdown.
+2. Copy its **Object ID** (Entra ID → Groups → your group → Overview) into
+   `config.json` as `employee_group_id`.
+3. Until the permission is granted and a group ID is set, the dropdown
+   falls back automatically to the static `employees` list in
+   `config.json` — nothing breaks in the meantime.
+
 ### Recommended: scope the app to only this one mailbox
 
 By default, `Calendars.ReadWrite` (Application) lets the app read/write
@@ -67,9 +90,14 @@ Fill in `config.json`:
   "tenant_id": "...",
   "room_mailbox": "besprechungszimmer@coredat.com",
   "timezone": "Europe/Vienna",
+  "employee_group_id": "...",
   "employees": ["Ibrahim", "Alex", "Oli", "Steffi", "Antonia", "Nico", "Mario", "Sonja"]
 }
 ```
+
+`employee_group_id` is optional — omit it (as it currently is) to use the
+static `employees` list until `GroupMember.Read.All` is granted and a
+group is set up (see above).
 
 `config.json` is gitignored — **never commit it**, it holds the client
 secret. Treat that secret like a password: anyone with it can read/write
@@ -79,12 +107,29 @@ every mailbox the app has been granted access to.
 
 ## 3. Run it (on the tablet itself)
 
+For local testing/debugging (on your own PC, or a one-off run anywhere):
+
 ```bash
 python server.py
 ```
 
 No login prompt — the app authenticates itself on every request using the
 client secret. The app is served at `http://<tablet-ip>:5000`.
+
+**On the tablet**, run `deploy-watch.sh` instead — it starts the server the
+same way, but also checks `origin/main` every 5 minutes and automatically
+pulls + restarts the server when new commits land, so pushing to `main` is
+enough to deploy without touching the tablet again:
+
+```bash
+nohup ./deploy-watch.sh > deploy-watch.log 2>&1 &
+```
+
+`nohup` + `&` keeps it running after you close the Termux session. It
+force-syncs to `origin/main` on every update (`git reset --hard` — safe,
+since `config.json`/`token_cache.bin` are gitignored and untouched by it),
+so don't make local edits directly on the tablet, they'll get overwritten
+on the next check.
 
 ---
 
@@ -126,9 +171,11 @@ client secret. The app is served at `http://<tablet-ip>:5000`.
 
 ## Notes / things you may want to adjust
 
-- The employee list is a static array in `config.json`, not pulled from the
-  organization's directory (avoids needing extra directory-read
-  permissions).
+- The employee dropdown is pulled live from an Entra ID group (see above),
+  cached for a week (the roster barely changes) to avoid hammering Graph
+  on every page load, with
+  an automatic fallback to the static `employees` list in `config.json` if
+  the group isn't configured or the Graph call fails.
 - Since the app authenticates as itself (not as a specific person), every
   booking's organizer on the calendar will be the room mailbox itself —
   who actually booked it is only recorded in the event's subject/body

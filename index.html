@@ -160,15 +160,22 @@
   setInterval(tickClock, 1000);
   tickClock();
 
+  // Tracks the last known health of each polled endpoint separately, so a
+  // transient failure in one can't get silently overwritten (or falsely
+  // clear the badge) by an unrelated call resolving around the same time.
+  const apiHealth = { status: true, agenda: true };
+
   async function loadStatus() {
     try {
       const res = await fetch(`${API_BASE}/status`);
       if (!res.ok) throw new Error(res.status);
       renderStatus(await res.json());
-      updateOfflineBadge(false);
+      apiHealth.status = true;
     } catch (err) {
-      updateOfflineBadge(true);
+      console.error("loadStatus failed:", err);
+      apiHealth.status = false;
     }
+    updateOfflineBadge();
   }
 
   async function loadAgenda() {
@@ -176,10 +183,12 @@
       const res = await fetch(`${API_BASE}/agenda?date=${formatDateParam(viewedDate)}`);
       if (!res.ok) throw new Error(res.status);
       renderAgenda(await res.json());
-      updateOfflineBadge(false);
+      apiHealth.agenda = true;
     } catch (err) {
-      updateOfflineBadge(true);
+      console.error("loadAgenda failed:", err);
+      apiHealth.agenda = false;
     }
+    updateOfflineBadge();
   }
 
   async function loadEmployees() {
@@ -190,7 +199,9 @@
       const select = document.getElementById("employeeSelect");
       select.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
     } catch (err) {
-      updateOfflineBadge(true);
+      // One-shot at page load, not part of the ongoing health/badge state —
+      // a failure here shouldn't mark the whole app "offline".
+      console.error("loadEmployees failed:", err);
     }
   }
 
@@ -365,11 +376,13 @@
     }
   });
 
-  function updateOfflineBadge(offline) {
-    // Driven only by real /api fetch outcomes below — navigator.onLine is
-    // unreliable (notably on Android) and can report false while local
-    // requests succeed fine, which caused the badge to get stuck showing
-    // "offline" even when the app was working correctly.
+  function updateOfflineBadge() {
+    // Driven only by apiHealth (real /api fetch outcomes) — navigator.onLine
+    // is unreliable (notably on Android) and was dropped for the same
+    // reason a shared true/false argument was: both let one call's timing
+    // clobber another's, leaving the badge stuck offline even when the app
+    // was working correctly.
+    const offline = !apiHealth.status || !apiHealth.agenda;
     document.getElementById("offlineBadge").classList.toggle("show", offline);
   }
 

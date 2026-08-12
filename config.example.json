@@ -4,5 +4,6 @@
   "tenant_id": "PASTE-DIRECTORY-TENANT-ID-HERE",
   "room_mailbox": "besprechungszimmer@coredat.com",
   "timezone": "Europe/Vienna",
+  "employee_group_id": "PASTE-ENTRA-GROUP-OBJECT-ID-HERE",
   "employees": ["Ibrahim", "Alex", "Oli", "Steffi", "Antonia", "Nico", "Mario", "Sonja"]
 }
