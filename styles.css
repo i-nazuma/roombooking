@@ -6,9 +6,9 @@
   --blue: #1B56C4;
   --text: #474747;
   --dark-blue: #202D41;
-  --green: #A1C9AC;
+  --green: #3FB864;
   --pink: #F2BAEC;
-  --yellow: #FFC55D;
+  --yellow: #FFA726;
   --purple: #CCB9F0;
   --white: #FFFFFF;
 
@@ -66,19 +66,6 @@ header {
   color: var(--text);
   margin-top: 4px;
 }
-
-.offline-badge {
-  display: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--dark-blue);
-  background: var(--yellow);
-  padding: 4px 10px;
-  border-radius: 8px;
-  margin-top: 6px;
-}
-
-.offline-badge.show { display: inline-block; }
 
 .clock {
   font-family: "SF Mono", "Consolas", monospace;

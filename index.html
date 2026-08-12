@@ -25,7 +25,6 @@
       <div class="room-name">
         Besprechungsraum
         <span id="lastUpdate">wird geladen …</span>
-        <span class="offline-badge" id="offlineBadge">Offline – letzter Stand</span>
       </div>
     </div>
     <div style="display:flex; align-items:center;">
@@ -138,13 +137,8 @@
     document.getElementById("todayBtn").classList.toggle("show", !isToday(viewedDate));
   }
 
-  function updateStatusHeroVisibility() {
-    document.getElementById("statusHero").style.display = isToday(viewedDate) ? "" : "none";
-  }
-
   function dayChanged() {
     renderDayNav();
-    updateStatusHeroVisibility();
     loadAgenda();
   }
 
@@ -166,22 +160,14 @@
   setInterval(tickClock, 1000);
   tickClock();
 
-  // Tracks the last known health of each polled endpoint separately, so a
-  // transient failure in one can't get silently overwritten (or falsely
-  // clear the badge) by an unrelated call resolving around the same time.
-  const apiHealth = { status: true, agenda: true };
-
   async function loadStatus() {
     try {
       const res = await apiFetch("/status");
       if (!res.ok) throw new Error(res.status);
       renderStatus(await res.json());
-      apiHealth.status = true;
     } catch (err) {
       console.error("loadStatus failed:", err);
-      apiHealth.status = false;
     }
-    updateOfflineBadge();
   }
 
   async function loadAgenda() {
@@ -189,12 +175,9 @@
       const res = await apiFetch(`/agenda?date=${formatDateParam(viewedDate)}`);
       if (!res.ok) throw new Error(res.status);
       renderAgenda(await res.json());
-      apiHealth.agenda = true;
     } catch (err) {
       console.error("loadAgenda failed:", err);
-      apiHealth.agenda = false;
     }
-    updateOfflineBadge();
   }
 
   async function loadEmployees() {
@@ -205,8 +188,6 @@
       const select = document.getElementById("employeeSelect");
       select.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
     } catch (err) {
-      // One-shot at page load, not part of the ongoing health/badge state —
-      // a failure here shouldn't mark the whole app "offline".
       console.error("loadEmployees failed:", err);
     }
   }
@@ -382,16 +363,6 @@
     }
   });
 
-  function updateOfflineBadge() {
-    // Driven only by apiHealth (real /api fetch outcomes) — navigator.onLine
-    // is unreliable (notably on Android) and was dropped for the same
-    // reason a shared true/false argument was: both let one call's timing
-    // clobber another's, leaving the badge stuck offline even when the app
-    // was working correctly.
-    const offline = !apiHealth.status || !apiHealth.agenda;
-    document.getElementById("offlineBadge").classList.toggle("show", offline);
-  }
-
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
@@ -399,7 +370,6 @@
   }
 
   renderDayNav();
-  updateStatusHeroVisibility();
   loadStatus();
   loadAgenda();
   loadEmployees();

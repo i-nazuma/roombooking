@@ -5,7 +5,7 @@
 // Browser-Fehlerseite auf dem Tablet führt. Bei Netzwerkfehlern wird die
 // zuletzt erfolgreich geladene Ansicht aus dem Cache gezeigt.
 
-const CACHE_NAME = "raumbuchung-shell-v1";
+const CACHE_NAME = "raumbuchung-shell-v2";
 
 const APP_SHELL = [
   "./index.html",
